@@ -1,9 +1,7 @@
 import axios, { type AxiosError } from 'axios'
 import { supabase } from './supabaseClient'
 
-const apiBase =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
-  'http://localhost:4000'
+const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || ''
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession()
@@ -23,7 +21,6 @@ export const tenantApi = {
         tokenExists: !!token,
         tokenLength: token.length,
         tokenMasked: token.length > 20 ? `${token.substring(0, 20)}...` : token,
-        authorizationHeader: headers.Authorization,
       })
       const { data } = await axios.get<{ data: T }>(url, {
         headers,
@@ -57,7 +54,6 @@ export const tenantApi = {
         tokenExists: !!token,
         tokenLength: token.length,
         tokenMasked: token.length > 20 ? `${token.substring(0, 20)}...` : token,
-        authorizationHeader: headers.Authorization,
       })
       const { data } = await axios.post<{ data: T }>(url, body, {
         headers,
@@ -90,7 +86,6 @@ export const tenantApi = {
         tokenExists: !!token,
         tokenLength: token.length,
         tokenMasked: token.length > 20 ? `${token.substring(0, 20)}...` : token,
-        authorizationHeader: headers.Authorization,
       })
       const { data } = await axios.patch<{ data: T }>(url, body, {
         headers,

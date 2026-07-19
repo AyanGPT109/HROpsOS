@@ -1,9 +1,7 @@
 import axios, { type AxiosError } from 'axios'
 import { supabase } from '@/lib/supabaseClient'
 
-const apiBase =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
-  'http://localhost:4000'
+const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || ''
 
 export class ApiError extends Error {
   code?: string

@@ -16,10 +16,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            // TODO: Provide these via local.properties or environment variables in CI
+            // storeFile file("release.keystore")
+            // storePassword "your-store-password"
+            // keyAlias "your-key-alias"
+            // keyPassword "your-key-password"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // signingConfig signingConfigs.release
         }
     }
 }

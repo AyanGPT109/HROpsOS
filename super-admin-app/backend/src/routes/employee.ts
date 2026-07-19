@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getServiceClient } from '../lib/supabase.js'
 import type { AuthedRequest } from '../middleware/auth.js'
+import { isInsideGeofence, isGpsAccuracyAcceptable, MIN_GPS_ACCURACY_METERS } from '../utils/geo.js'
 
 export const employeeRouter = Router()
 
@@ -87,9 +88,47 @@ employeeRouter.get('/geofence', async (req: AuthedRequest, res) => {
 })
 employeeRouter.post('/attendance/upsert', async (req: AuthedRequest, res) => {
   const supabase = getServiceClient()
+  const row = req.body.row
+
+  if (row.check_in_lat && row.check_in_lon) {
+    if (!isGpsAccuracyAcceptable(row.check_in_accuracy, MIN_GPS_ACCURACY_METERS)) {
+      res.status(400).json({ error: 'ValidationError', message: `GPS accuracy is too low. Please try again outdoors.` })
+      return
+    }
+
+    const { data: fences, error: fenceError } = await supabase
+      .from('geo_fence')
+      .select('*')
+      .eq('plant_id', row.plant_id)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    if (fenceError) {
+      res.status(500).json({ error: 'GeofenceLookupFailed', message: fenceError.message })
+      return
+    }
+
+    const fence = fences?.[0]
+    if (fence) {
+      const inside = isInsideGeofence({
+        latitude: row.check_in_lat,
+        longitude: row.check_in_lon,
+        fenceLat: fence.latitude,
+        fenceLon: fence.longitude,
+        radiusMeters: fence.radius_meters,
+      })
+
+      if (!inside) {
+        res.status(403).json({ error: 'GeofenceViolation', message: 'You are outside the allowed work area. Action blocked by server.' })
+        return
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('attendance')
-    .upsert(req.body.row, { onConflict: req.body.onConflict })
+    .upsert(row, { onConflict: req.body.onConflict })
     .select()
     .single()
   if (error) {
@@ -101,9 +140,51 @@ employeeRouter.post('/attendance/upsert', async (req: AuthedRequest, res) => {
 
 employeeRouter.post('/attendance/update', async (req: AuthedRequest, res) => {
   const supabase = getServiceClient()
+  const row = req.body.row
+
+  if (row.check_out_lat && row.check_out_lon) {
+    if (!isGpsAccuracyAcceptable(row.check_out_accuracy, MIN_GPS_ACCURACY_METERS)) {
+      res.status(400).json({ error: 'ValidationError', message: `GPS accuracy is too low. Please try again outdoors.` })
+      return
+    }
+
+    // Since we only have the attendance id, we need to fetch the plant_id
+    const { data: attendanceRecord, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('plant_id')
+      .eq('id', req.body.id)
+      .single()
+
+    if (!attendanceError && attendanceRecord?.plant_id) {
+      const { data: fences, error: fenceError } = await supabase
+        .from('geo_fence')
+        .select('*')
+        .eq('plant_id', attendanceRecord.plant_id)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      const fence = fences?.[0]
+      if (fence) {
+        const inside = isInsideGeofence({
+          latitude: row.check_out_lat,
+          longitude: row.check_out_lon,
+          fenceLat: fence.latitude,
+          fenceLon: fence.longitude,
+          radiusMeters: fence.radius_meters,
+        })
+
+        if (!inside) {
+          res.status(403).json({ error: 'GeofenceViolation', message: 'You are outside the allowed work area. Action blocked by server.' })
+          return
+        }
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('attendance')
-    .update(req.body.row)
+    .update(row)
     .eq('id', req.body.id)
     .select()
     .single()

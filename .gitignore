@@ -1,4 +1,4 @@
-﻿# Logs
+# Logs
 logs
 *.log
 npm-debug.log*
@@ -17,6 +17,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
 
 # Editor
 .vscode/*

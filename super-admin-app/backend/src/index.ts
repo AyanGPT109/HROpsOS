@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import { requireSuperAdmin, requireTenantAdmin, requireWorker } from './middleware/auth.js'
 import { adminRouter } from './routes/admins.js'
 import { plantRouter } from './routes/plants.js'
@@ -44,7 +46,16 @@ app.use(
     credentials: true,
   }),
 )
+app.use(helmet())
 app.use(express.json())
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use('/api', apiLimiter)
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'hropsos-cloud-platform-api' })
