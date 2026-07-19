@@ -9,7 +9,13 @@ import { employeeRouter } from './routes/employee.js'
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
-const localOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175']
+const localOrigins = [
+  'http://localhost',
+  'capacitor://localhost',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+]
 const configuredOrigins = (process.env.CORS_ORIGIN ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -19,10 +25,12 @@ const allowedOrigins = new Set([...localOrigins, ...configuredOrigins])
 app.use(
   cors({
     origin(origin, callback) {
-      // Browser requests from our three local workspaces, plus explicitly
-      // configured production origins, are accepted. Non-browser clients have
-      // no Origin header and are safe to allow through this CORS layer.
-      callback(null, !origin || allowedOrigins.has(origin))
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true)
+      }
+
+      console.warn(`Blocked CORS origin: ${origin}`)
+      return callback(new Error(`Origin ${origin} not allowed by CORS`))
     },
     credentials: true,
   }),
