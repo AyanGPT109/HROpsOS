@@ -22,7 +22,19 @@ employeeRouter.get('/attendance/today', async (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'WorkerNotFound', message: 'No active worker record is linked to this account' })
     return
   }
-  const date = new Date().toISOString().slice(0, 10)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  
+  const parts = formatter.formatToParts(new Date())
+  const year = parts.find(p => p.type === 'year')?.value
+  const month = parts.find(p => p.type === 'month')?.value
+  const day = parts.find(p => p.type === 'day')?.value
+  
+  const date = `${year}-${month}-${day}`
   const { data: rows, error } = await supabase
     .from('attendance')
     .select('*')
