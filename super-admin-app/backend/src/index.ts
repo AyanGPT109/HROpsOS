@@ -11,6 +11,7 @@ const app = express()
 const port = Number(process.env.PORT ?? 4000)
 const localOrigins = [
   'http://localhost',
+  'https://localhost',
   'capacitor://localhost',
   'http://localhost:5173',
   'http://localhost:5174',
