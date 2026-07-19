@@ -22,14 +22,22 @@ const configuredOrigins = (process.env.CORS_ORIGIN ?? '')
   .filter(Boolean)
 const allowedOrigins = new Set([...localOrigins, ...configuredOrigins])
 
+app.use((req, res, next) => {
+  console.log(
+    `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} Origin=${req.headers.origin ?? 'none'} User-Agent=${req.headers['user-agent'] ?? 'unknown'}`
+  );
+  next();
+});
+
 app.use(
   cors({
     origin(origin, callback) {
+      console.log("Incoming Origin:", origin);
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true)
       }
 
-      console.warn(`Blocked CORS origin: ${origin}`)
+      console.warn("Blocked Origin:", origin);
       return callback(new Error(`Origin ${origin} not allowed by CORS`))
     },
     credentials: true,

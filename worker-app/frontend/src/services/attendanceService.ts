@@ -17,7 +17,8 @@ import {
   isInsideGeofence,
   MIN_GPS_ACCURACY_METERS,
 } from '@/utils/geo'
-import { employeeGet, employeePost } from '@/lib/employeeApi'
+import axios from 'axios'
+import { apiBase, employeeGet, employeePost } from '@/lib/employeeApi'
 
 async function getWorkerContext() {
   const { data: auth, error: authError } = await supabase.auth.getUser()
@@ -38,26 +39,38 @@ async function getWorkerContext() {
   return worker
 }
 
-async function getPlantGeofence(plantId: string): Promise<GeoFence> {
+async function getPlantGeofence(): Promise<GeoFence> {
+  const url = `${apiBase}/api/employee/geofence`
   try {
-    const fence = await employeeGet<GeoFence | null>('/api/employee/geofence')
-    if (fence) return fence
-  } catch (err) {
-    console.warn('Failed to fetch geofence via API, falling back to direct DB access', err)
+    const { data: session } = await supabase.auth.getSession()
+    if (!session.session?.access_token) throw new Error('You must be signed in')
+
+    const response = await axios.get<{ data: GeoFence | null }>(url, {
+      headers: { Authorization: `Bearer ${session.session.access_token}` },
+    })
+
+    const fence = response.data.data
+    if (!fence) throw new Error('No active geofence is configured for this site')
+    return fence
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error({
+        url,
+        code: error.code,
+        message: error.message,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        data: error.response?.data,
+        request: !!error.request,
+        navigatorOnline: navigator.onLine
+      })
+      throw new Error(error.response?.data?.message ?? error.message)
+    } else if (error instanceof Error) {
+      console.error('[Geofence Request Error]', { url, message: error.message })
+      throw error
+    }
+    throw new Error('Unknown error while fetching geofence')
   }
-
-  const { data: fences, error } = await supabase
-    .from('geo_fence')
-    .select('*')
-    .eq('plant_id', plantId)
-    .eq('is_active', true)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-
-  if (error) throw error
-  const fence = fences?.[0]
-  if (!fence) throw new Error('No active geofence is configured for this site')
-  return fence as GeoFence
 }
 
 function validateLocation(payload: CheckInPayload, fence: GeoFence) {
@@ -115,7 +128,7 @@ export const attendanceService = {
     const worker = await getWorkerContext()
     if (!worker.plant_id) throw new Error('No plant assigned. Contact your admin.')
 
-    const fence = await getPlantGeofence(worker.plant_id)
+    const fence = await getPlantGeofence()
     const distance = validateLocation(payload, fence)
 
     const existing = await this.getToday(worker.id)
@@ -173,7 +186,7 @@ export const attendanceService = {
     const worker = await getWorkerContext()
     if (!worker.plant_id) throw new Error('No plant assigned. Contact your admin.')
 
-    const fence = await getPlantGeofence(worker.plant_id)
+    const fence = await getPlantGeofence()
     const distance = validateLocation(payload, fence)
 
     const existing = await this.getToday(worker.id)
